@@ -1,0 +1,27 @@
+{
+  "name": "secure-utils",
+  "version": "1.0.1",
+  "authors": [
+    "Aron Price <aron@heka.house>"
+  ],
+  "description": "A polymer element for assisting with cryptography.",
+  "keywords": [
+    "web-component",
+    "polymer",
+    "cryptography"
+  ],
+  "main": "secure-fcm-crypto.html",
+  "license": "https://heka-house-polymer-demos.firebaseio.com/LICENSE",
+  "homepage": "https://github.com/HekaHouse/secure-utils/",
+  "ignore": [
+    "/.*",
+    "/test/"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#^1.2.0"
+  },
+  "devDependencies": {
+    "iron-component-page": "PolymerElements/iron-component-page#^1.0.0",
+    "web-component-tester": "^4.0.0"
+  }
+}

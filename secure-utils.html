@@ -1,0 +1,172 @@
+<link rel="import" href="../bower_components/polymer/polymer.html">
+
+<!--
+# secure-utils
+
+`<secure-utils>` A Polymer element to assist with cryptography.
+
+[API Docs and Demo](https://heka-house-polymer-demos.firebaseapp.com/secure-utils)
+
+[Source](http://github.com/hekahouse/secure-utils/)
+
+
+## Install
+
+    bower install --save HekaHouse/secure-utils
+
+## Example
+
+    <secure-utils></secure-utils>
+
+## Dependencies
+
+## Related
+
+[secure-ecdh-secret](http://github.com/hekahouse/secure-ecdh-secret/)
+
+[secure-fcm-crypto](http://github.com/hekahouse/secure-fcm-crypto/)
+
+
+@group HekaHouse
+@element secure-utils
+-->
+
+<dom-module id="secure-utils">
+  <template>
+  <style>
+    :host {
+      display: block;
+    }
+  </style>
+  </template>
+</dom-module>
+
+<script>
+  Polymer({
+    is: 'secure-utils',
+    properties: {
+      lookup: {
+        type: Array,
+        value: []
+      },
+      revLookup: {
+        type: Array,
+        value: []
+      },
+    },
+    attached: function(incoming) {
+      var code = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+      for (var i = 0, len = code.length; i < len; ++i) {
+        this.lookup[i] = code[i]
+        this.revLookup[code.charCodeAt(i)] = i
+      }
+      this.revLookup['-'.charCodeAt(0)] = 62
+      this.revLookup['_'.charCodeAt(0)] = 63
+    },
+    _tripletToBase64: function(num) {
+      return this.lookup[num >> 18 & 0x3F] + this.lookup[num >> 12 & 0x3F] + this.lookup[num >> 6 & 0x3F] + this.lookup[num & 0x3F]
+    },
+    _encodeChunk: function(uint8, start, end) {
+      var tmp
+      var output = []
+      for (var i = start; i < end; i += 3) {
+        tmp = (uint8[i] << 16) + (uint8[i + 1] << 8) + (uint8[i + 2])
+        output.push(this._tripletToBase64(tmp))
+      }
+      return output.join('')
+    },
+    base64fromByteArray: function(uint8) {
+      var tmp
+      var len = uint8.length
+      var extraBytes = len % 3 // if we have 1 byte left, pad 2 bytes
+      var output = ''
+      var parts = []
+      var maxChunkLength = 16383 // must be multiple of 3
+
+      // go through the array every three bytes, we'll deal with trailing stuff later
+      for (var i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
+        parts.push(this._encodeChunk(uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)))
+      }
+
+      // pad the end with zeros, but make sure to not forget the extra bytes
+      if (extraBytes === 1) {
+        tmp = uint8[len - 1]
+        output += this.lookup[tmp >> 2]
+        output += this.lookup[(tmp << 4) & 0x3F]
+        output += '=='
+      } else if (extraBytes === 2) {
+        tmp = (uint8[len - 2] << 8) + (uint8[len - 1])
+        output += this.lookup[tmp >> 10]
+        output += this.lookup[(tmp >> 4) & 0x3F]
+        output += this.lookup[(tmp << 2) & 0x3F]
+        output += '='
+      }
+
+      parts.push(output)
+
+      return parts.join('').replace(/\+/g, '-').replace(/\//g, '_').replace(/\=+$/, '');
+    },
+    base64ToArrayBuffer: function(base64) {
+        var binary_string =  window.atob(base64);
+        var len = binary_string.length;
+        var bytes = new Uint8Array( len );
+        for (var i = 0; i < len; i++)        {
+            bytes[i] = binary_string.charCodeAt(i);
+        }
+        return bytes.buffer;
+    },
+    arrayBufferToBase64: function( buffer ) {
+        var binary = '';
+        var bytes = new Uint8Array( buffer );
+        var len = bytes.byteLength;
+        for (var i = 0; i < len; i++) {
+            binary += String.fromCharCode( bytes[ i ] );
+        }
+        return window.btoa( binary );
+    },
+    randomBytes: function(n) {
+      if (window.crypto && window.crypto.getRandomValues) {
+        // Modern browsers
+        var arr = new Uint8Array(n);
+        window.crypto.getRandomValues(arr);
+        return arr;
+      } else if (window.msCrypto && window.msCrypto.getRandomValues) {
+        // IE
+        var arr = new Uint8Array(n);
+        window.msCrypto.getRandomValues(arr);
+        return arr;
+      } else {
+        // Old junk
+        throw new Error('Not implemented yet');
+      }
+    },
+    generateSaltBase64(len) {
+      return this.base64fromByteArray(this.randomBytes(len)).replace(/-/g, '+').replace(/_/g, '/');
+    },
+    getPrivateKeyBase64(keys) {
+      //this call initializes the values for the private key
+      //builds the Array for fllowing call
+      keys.getPrivate().toString(16);
+      var privArr = new Uint8Array(keys.priv.toArray());
+      return this.base64fromByteArray(privArr);
+    },
+    getPublicKeyBase64(keys) {
+      var pubArr = Uint8Array.from(keys.getPublic()._encode());
+      return this.arrayBufferToBase64(pubArr.buffer);
+    },
+    textToTypedArray: function(text) {
+      var typed = [];
+      for (var i = 0; i < text.length; ++i) {
+          typed.push(text.charCodeAt(i));
+      }
+      return new Uint8Array(typed);
+    },
+    getPadding(paddingLength, nodeBuffer) {
+      var padding = nodeBuffer.Buffer(2 + paddingLength);
+      // The buffer must be only zeroes, except the length
+      padding.fill(0);
+      padding.writeUInt16BE(paddingLength, 0);
+      return padding;
+    }
+  });
+</script>
